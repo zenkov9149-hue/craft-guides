@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Гайды по крафту - Рецепты</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .search-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #searchInput:focus {
+            border-color: #667eea;
+        }
+
+        .recipes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .recipe-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .recipe-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .recipe-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .ingredients-list {
+            list-style: none;
+        }
+
+        .ingredient-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .ingredient-image {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            margin-right: 15px;
+            border-radius: 5px;
+            background: white;
+            padding: 5px;
+        }
+
+        .ingredient-info {
+            flex: 1;
+        }
+
+        .ingredient-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .ingredient-quantity {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Гайды по крафту</h1>
+            <p>Все рецепты для создания предметов</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Поиск рецепта по названию...">
+        </div>
+
+        <div id="loading" class="loading">Загрузка рецептов...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="recipesContainer" class="recipes-container"></div>
+    </div>
+
+    <script>
+        // URL вашего Apps Script веб-приложения (из apps_script_url.txt)
+        const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL';
+        
+        let allRecipes = [];
+
+        // Загрузка данных через Apps Script
+        async function loadRecipes() {
+            try {
+                const response = await fetch(APPS_SCRIPT_URL + '?action=getRecipes', {
+                    method: 'GET'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+
+                const data = await response.json();
+                allRecipes = data.recipes || [];
+                displayRecipes(allRecipes);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 
+                    'Ошибка загрузки рецептов. Проверьте настройки Apps Script.';
+                console.error('Error:', error);
+            }
+        }
+
+        // Отображение рецептов
+        function displayRecipes(recipes) {
+            const container = document.getElementById('recipesContainer');
+            
+            if (recipes.length === 0) {
+                container.innerHTML = '<div class="no-results">Рецепты не найдены</div>';
+                return;
+            }
+
+            container.innerHTML = recipes.map(recipe => `
+                <div class="recipe-card">
+                    <div class="recipe-title">${escapeHtml(recipe.name)}</div>
+                    <ul class="ingredients-list">
+                        ${recipe.ingredients.map(ing => `
+                            <li class="ingredient-item">
+                                ${ing.imageUrl ? 
+                                    `<img src="${ing.imageUrl}" alt="${escapeHtml(ing.name)}" class="ingredient-image" onerror="this.style.display='none'">` : 
+                                    '<div class="ingredient-image" style="background: #ddd; display: flex; align-items: center; justify-content: center; color: #999;">Нет фото</div>'
+                                }
+                                <div class="ingredient-info">
+                                    <div class="ingredient-name">${escapeHtml(ing.name)}</div>
+                                    <div class="ingredient-quantity">Количество: x${ing.quantity}</div>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        // Поиск рецептов
+        function searchRecipes(query) {
+            const searchTerm = query.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                displayRecipes(allRecipes);
+                return;
+            }
+
+            const filtered = allRecipes.filter(recipe => 
+                recipe.name.toLowerCase().includes(searchTerm) ||
+                recipe.ingredients.some(ing => ing.name.toLowerCase().includes(searchTerm))
+            );
+
+            displayRecipes(filtered);
+        }
+
+        // Экранирование HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Обработчик поиска
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchRecipes(e.target.value);
+        });
+
+        // Загрузка при старте
+        loadRecipes();
+    </script>
+</body>
+</html>
+
